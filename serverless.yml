@@ -1,0 +1,50 @@
+service: serverless-lambda-sqs
+
+plugins:
+  - serverless-python-requirements
+  - serverless-wsgi
+package:
+  individually: true
+  excludeDevDependencies: true
+
+custom:
+  wsgi:
+    app: app.app
+    pythonBin: python3
+  pythonRequirements:
+    slim: true
+    strip: false
+    slimPatternsAppendDefaults: true
+    slimPatterns:
+      - "**/*.egg-info*"
+      - "**/*.dist-info*"
+    dockerizePip: true
+
+provider:
+  name: aws
+  runtime: python3.7
+  stage: dev
+  region: us-west-2
+  environment:
+    S3_BUCKET: serverless-lambda-tutorial
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "s3:*"
+      Resource: ["arn:aws:s3:::${self:provider.environment.S3_BUCKET}/*"]
+
+functions:
+  api:
+    handler: wsgi_handler.handler
+    events:
+      - http: ANY /
+      - http: ANY {proxy+}
+  generate_thumbnail:
+    handler: app.generate_thumbnail
+    events:
+      - s3:
+          bucket: serverless-lambda-tutorial
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: uploads/
+          existing: true
